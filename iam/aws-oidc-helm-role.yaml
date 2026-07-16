@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates an OIDC Provider for GitHub Actions and a restricted IAM Role for pushing Helm charts to ECR.
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Description: Your GitHub Organization or Username
+  GitHubRepo:
+    Type: String
+    Default: 'universal-helm-chart'
+    Description: Your GitHub Repository name
+  CreateOIDCProvider:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: "Set to 'false' if the GitHub OIDC provider already exists in this AWS account."
+
+Conditions:
+  ShouldCreateOIDCProvider: !Equals [!Ref CreateOIDCProvider, 'true']
+
+Resources:
+  GitHubOIDCProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: ShouldCreateOIDCProvider
+    Properties:
+      Url: "https://token.actions.githubusercontent.com"
+      ClientIdList:
+        - "sts.amazonaws.com"
+      ThumbprintList:
+        - "1b511abead59c6ce207077c0bf0e0043b1382612"
+        - "6938fd4d98bab03faadb97b34396831e3780aea1"
+
+  GitHubActionsECRRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "GitHubActions-${GitHubRepo}-Role"
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRoleWithWebIdentity
+            Principal:
+              Federated: !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Condition:
+              # Strict restriction: Only THIS repository can assume the role (supports new July 2026 immutable format)
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubOrg}*/*${GitHubRepo}*:*"
+              StringEquals:
+                token.actions.githubusercontent.com:aud: "sts.amazonaws.com"
+      ManagedPolicyArns:
+        # STRICT LEAST PRIVILEGE: Only ECR access to push the Helm chart
+        - "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
+
+Outputs:
+  RoleArn:
+    Description: "The ARN of the IAM Role for pushing Helm charts to ECR"
+    Value: !GetAtt GitHubActionsECRRole.Arn

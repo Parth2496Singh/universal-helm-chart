@@ -1,0 +1,37 @@
+name: Publish Helm Chart to ECR
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Chart.yaml' # Only trigger if the chart version/metadata changes
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Required for AWS OIDC
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::<YOUR_AWS_ACCOUNT>:role/github-actions-role
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Package and Push Helm Chart
+        run: |
+          # Read the immutable version directly from Chart.yaml
+          VERSION=$(grep '^version:' Chart.yaml | awk '{print $2}')
+          
+          # Package the chart
+          helm package .
+          
+          # Push to ECR as an OCI artifact
+          helm push common-microservices-$VERSION.tgz oci://${{ steps.login-ecr.outputs.registry }}/universal-helm-chart

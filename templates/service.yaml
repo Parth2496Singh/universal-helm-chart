@@ -11,5 +11,8 @@ spec:
       port: 80
       targetPort: {{ .Values.service.port }}
       protocol: TCP
+    {{- if .Values.extraPorts }}
+    {{- toYaml .Values.extraPorts | nindent 4 }}
+    {{- end }}
   selector:
     app: {{ .Release.Name }}

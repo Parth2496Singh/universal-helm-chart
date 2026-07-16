@@ -27,11 +27,15 @@ jobs:
 
       - name: Package and Push Helm Chart
         run: |
-          # Read the immutable version directly from Chart.yaml
+          # Read the immutable version and name directly from Chart.yaml
           VERSION=$(grep '^version:' Chart.yaml | awk '{print $2}')
+          CHART_NAME=$(grep '^name:' Chart.yaml | awk '{print $2}')
           
-          # Package the chart
+          echo "Packaging chart: $CHART_NAME version $VERSION"
+          
+          # Package the chart (outputs a .tgz file)
           helm package .
           
           # Push to ECR as an OCI artifact
-          helm push common-microservices-$VERSION.tgz oci://${{ steps.login-ecr.outputs.registry }}/universal-helm-chart
+          # This dynamically uses the exact name defined in your Chart.yaml
+          helm push ${CHART_NAME}-${VERSION}.tgz oci://${{ steps.login-ecr.outputs.registry }}/universal-helm-chart

@@ -38,4 +38,4 @@ jobs:
           
           # Push to ECR as an OCI artifact
           # This dynamically uses the exact name defined in your Chart.yaml
-          helm push ${CHART_NAME}-${VERSION}.tgz oci://${{ steps.login-ecr.outputs.registry }}/universal-helm-chart
+          helm push ${CHART_NAME}-${VERSION}.tgz oci://${{ steps.login-ecr.outputs.registry }}
